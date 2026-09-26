@@ -21,6 +21,8 @@ Tools:
 - Fake phone: `cargo run -p lenny_desktop --example fake_phone -- <host> <port> [--portrait]`: a synthetic sender
   (openh264) for trying the desktop app without a phone. Not a camera test.
 - `lenny-desktop --screenshot out.png [--after s] [--size WxH]`: renders, saves a PNG, quits (Xvfb-friendly).
+- `tools/linux-test-vm.ps1` (Windows, elevated PowerShell): VirtualBox + Ubuntu 24.04 Xfce VM with v4l2loopback,
+  OBS, Discord, Chromium and Lenny Desktop built from a branch, bridged so a phone can connect. First boot ~20-40 min.
 
 Debug output (logs, dumps, captured streams) stays local and is gitignored. Never commit it.
 
