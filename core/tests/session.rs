@@ -772,7 +772,8 @@ fn struct_layouts_match_header() {
     o!(lenny_peer_info, exposure_step_milli);
     o!(lenny_peer_info, mode_count);
     o!(lenny_peer_info, modes);
-    assert_eq!(out, include_str!("abi_layout_64.txt"));
+    // A Windows checkout may turn the fixture into CRLF.
+    assert_eq!(out, include_str!("abi_layout_64.txt").replace("\r\n", "\n"));
 }
 
 #[test]

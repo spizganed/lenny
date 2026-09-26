@@ -51,7 +51,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test (x64; includes the virtual cameras driven in-process)
-        run: cargo test --workspace
+        run: cargo test --workspace --no-fail-fast
       - name: Virtual camera DLL tests, x86 (32-bit DirectShow apps)
         run: cargo test -p lenny_vcam_com --target i686-pc-windows-msvc
       - name: regsvr32 register + unregister, x64 and x86
