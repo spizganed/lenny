@@ -70,11 +70,9 @@ testing.md "Desktop (Rust, Linux)". Nothing was run on real hardware.
 
 Do these in order:
 
-1. **Verify PR #3 on real hardware, then merge it.** Checklist is in the PR
-   description. Record results in `docs/testing.md` (fill in row 8 of the
-   Desktop table, add a row per consumer). Fastest Linux setup on the PC:
-   `tools/linux-test-vm.ps1` (untested on Windows itself: if the VirtualBox
-   install or the IMAPI2 seed-ISO step fails, fix the script first).
+1. **Done 2026-09-27:** PR #3 merged into main after a Windows 11 + real phone run (results in
+   `docs/testing.md`). Still open: Linux on real v4l2loopback (row 8). `tools/linux-test-vm.ps1`
+   stalls on this PC because Hyper-V is on; the next Linux VM should be a Hyper-V VM, not VirtualBox.
 2. **Windows virtual camera backends: written in the cloud, never run on a real
    Windows desktop.** They exist and compile for x64 and x86. The CI `windows` job
    drives them in-process: DirectShow in a real filter graph, MF through
