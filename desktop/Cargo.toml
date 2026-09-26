@@ -1,0 +1,23 @@
+[package]
+name = "lenny_desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Lenny Desktop: receives the phone's stream, shows it, and feeds the OS virtual camera."
+license = "UNLICENSED"
+publish = false
+
+[[bin]]
+name = "lenny-desktop"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.32.3", default-features = false, features = ["glow", "wayland", "x11", "default_fonts", "accesskit"] }
+env_logger = "0.11.11"
+if-addrs = "0.15.0"
+lenny_core = { path = "../core" }
+lenny_vcam = { path = "../vcam" }
+log = "0.4.34"
+openh264 = "0.9.8"
+png = "0.18.1"
+qrcode = { version = "0.14.1", default-features = false }
