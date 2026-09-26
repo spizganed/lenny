@@ -853,17 +853,22 @@ final class lenny_lens_caps extends ffi.Struct {
   @ffi.Uint16()
   external int zoom_max;
 
+  @ffi.Uint16()
+  external int zoom_base;
+
   static ffi.Pointer<lenny_lens_caps> $allocate(
     ffi.Allocator $allocator, {
     required ffi.Pointer<lenny_mode> modes,
     required int mode_count,
     required int zoom_min,
     required int zoom_max,
+    required int zoom_base,
   }) => $allocator<lenny_lens_caps>()
     ..ref.modes = modes
     ..ref.mode_count = mode_count
     ..ref.zoom_min = zoom_min
-    ..ref.zoom_max = zoom_max;
+    ..ref.zoom_max = zoom_max
+    ..ref.zoom_base = zoom_base;
 }
 
 final class lenny_mode extends ffi.Struct {

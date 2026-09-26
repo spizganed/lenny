@@ -71,6 +71,7 @@ lenny_lens_caps size=24 align=8
   lenny_lens_caps.mode_count @8
   lenny_lens_caps.zoom_min @16
   lenny_lens_caps.zoom_max @18
+  lenny_lens_caps.zoom_base @20
 lenny_sender_callbacks size=40 align=8
   lenny_sender_callbacks.user @0
   lenny_sender_callbacks.on_state @8

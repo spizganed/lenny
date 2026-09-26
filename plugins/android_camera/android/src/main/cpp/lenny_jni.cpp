@@ -96,7 +96,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
 }
 
 // lenses = flat [id, facing, ...] with labels[i] for each; exposure = [min, max, step_milli] (EV*1000) or empty;
-// lens_caps = per lens [zoom_min, zoom_max, mode_count, w, h, fps_num, fps_den, ...] (lenny_lens_caps).
+// lens_caps = per lens [zoom_min, zoom_max, zoom_base, mode_count, w, h, fps_num, fps_den, ...] (lenny_lens_caps).
 JNIEXPORT jlong JNICALL Java_com_spizganed_android_1camera_LennyNative_create(
     JNIEnv* env, jclass, jbyteArray device_id, jstring name, jintArray modes, jint max_bitrate, jint controls,
     jintArray lenses, jobjectArray lens_labels, jintArray exposure, jintArray lens_caps, jobject listener) {
@@ -152,16 +152,16 @@ JNIEXPORT jlong JNICALL Java_com_spizganed_android_1camera_LennyNative_create(
     std::vector<lenny_mode> lens_modes(cv.size() / 4 + 1);
     std::vector<lenny_lens_caps> lc;
     size_t at = 0, used = 0;
-    for (size_t i = 0; i < lens_list.size() && at + 3 <= cv.size(); ++i) {
-        const size_t count = size_t(cv[at + 2]);
-        if (count > (cv.size() - at - 3) / 4) break;  // malformed: stop, the core treats missing lenses as "no info"
-        lenny_lens_caps c{lens_modes.data() + used, count, uint16_t(cv[at]), uint16_t(cv[at + 1])};
+    for (size_t i = 0; i < lens_list.size() && at + 4 <= cv.size(); ++i) {
+        const size_t count = size_t(cv[at + 3]);
+        if (count > (cv.size() - at - 4) / 4) break;  // malformed: stop, and send no per-lens caps at all
+        lenny_lens_caps c{lens_modes.data() + used, count, uint16_t(cv[at]), uint16_t(cv[at + 1]), uint16_t(cv[at + 2])};
         for (size_t k = 0; k < count; ++k) {
-            const jint* m = &cv[at + 3 + 4 * k];
+            const jint* m = &cv[at + 4 + 4 * k];
             lens_modes[used++] = {uint16_t(m[0]), uint16_t(m[1]), uint16_t(m[2]), uint16_t(m[3])};
         }
         lc.push_back(c);
-        at += 3 + 4 * count;
+        at += 4 + 4 * count;
     }
     if (lc.size() == lens_list.size()) cfg.lens_caps = lc.data();
     if (env->GetArrayLength(exposure) == 3) {

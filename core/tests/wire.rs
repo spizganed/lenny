@@ -287,7 +287,8 @@ fn vector_caps_per_lens_1_1() {
     let hd = lenny_mode { width: 1280, height: 720, fps_num: 30, fps_den: 1 };
     assert_eq!(c.modes, vec![lenny_mode { width: 1920, height: 1080, fps_num: 30, fps_den: 1 }]);
     assert_eq!(c.controls, (LENNY_CAP_LENS | LENNY_CAP_ZOOM | LENNY_CAP_PAN) as u64);
-    let lens = Lens { id: 0, facing: 0, label: b"1x".to_vec(), modes: vec![hd], zoom_min: 60, zoom_max: 1000 };
+    let lens =
+        Lens { id: 0, facing: 0, label: b"1x".to_vec(), modes: vec![hd], zoom_min: 60, zoom_max: 1000, zoom_base: 100 };
     assert_eq!(c.lenses, vec![lens]);
     assert_eq!(to_message(&c, 1), v);
     // A 1.0 peer gets the same CAPS without the per-lens fields, and still decodes it.

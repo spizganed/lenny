@@ -204,6 +204,7 @@ typedef struct {
     const lenny_mode* modes;   /* modes this lens can stream; mode_count 0 = the config-level modes */
     size_t mode_count;
     uint16_t zoom_min, zoom_max; /* LENNY_CTL_ZOOM range for this lens, ratio*100 relative to it; 0 = unknown */
+    uint16_t zoom_base;          /* this lens's zoom ratio*100 on its camera (e.g. 200 for a 2x tele), 0 = 100 */
 } lenny_lens_caps;
 
 typedef struct {

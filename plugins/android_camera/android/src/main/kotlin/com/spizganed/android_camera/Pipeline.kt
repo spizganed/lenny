@@ -114,10 +114,12 @@ class Pipeline(private val context: Context) : SenderListener {
         lensLabels = lenses.map { it.label }
         exposure = exposureRange()
         val flat = lenses.flatMapIndexed { i, l -> listOf(i, l.facing) }.toIntArray()
-        // Per lens: [zoomMin, zoomMax, modeCount, modes...], zoom as ratio*100 relative to the lens (CTL_ZOOM units).
+        // Per lens: [zoomMin, zoomMax, zoomBase, modeCount, modes...]; min/max as ratio*100 relative to the lens
+        // (CTL_ZOOM units), base = the lens's own ratio*100 on its camera (what pan is relative to).
         val lensCaps = lenses.flatMap { l ->
             val (lo, hi) = zoomRange(l)
-            listOf((lo / l.zoom * 100).roundToInt(), (hi / l.zoom * 100).roundToInt(), l.modes.size / 4) + l.modes.toList()
+            listOf((lo / l.zoom * 100).roundToInt(), (hi / l.zoom * 100).roundToInt(), (l.zoom * 100).roundToInt(),
+                l.modes.size / 4) + l.modes.toList()
         }.toIntArray()
         handle = LennyNative.create(
             deviceId(context), Build.MODEL, lenses[state.lens].modes, MAX_BITRATE_KBPS, caps, flat,

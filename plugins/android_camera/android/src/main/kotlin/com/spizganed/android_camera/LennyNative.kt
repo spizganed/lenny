@@ -49,7 +49,7 @@ object LennyNative {
 
     /**
      * modes = flat [w, h, fpsNum, fpsDen, ...]; lenses = flat [id, facing, ...] with one label each;
-     * exposure = [minEvMilli, maxEvMilli, stepMilli] or empty; lensCaps = per lens [zoomMin, zoomMax, modeCount,
+     * exposure = [minEvMilli, maxEvMilli, stepMilli] or empty; lensCaps = per lens [zoomMin, zoomMax, zoomBase, modeCount,
      * modes (w, h, fps, 1)...] (lenny_lens_caps). Returns 0 on failure.
      */
     @JvmStatic external fun create(

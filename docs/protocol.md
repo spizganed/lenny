@@ -160,8 +160,10 @@ Lens sub-fields since 1.1 (a 1.0 receiver skips them):
   often tops out below the back one), so a receiver offers only the selected lens's modes and never a mode that would
   fall back when streaming starts. No tag 4 = the CAPS-level modes (tag 2), which stay the default lens's modes for 1.0
   receivers.
-- `5 zoom_range`: list {1 min u16, 2 max u16}, ratio × 100 relative to this lens, the range CONTROL `zoom` accepts
-  (min may be below 100 on a logical multi-camera, where zooming out selects the ultrawide sensor).
+- `5 zoom_range`: list {1 min u16, 2 max u16, 3 base u16}. min/max: ratio × 100 relative to this lens, the range
+  CONTROL `zoom` accepts (min may be below 100 on a logical multi-camera, where zooming out selects the ultrawide
+  sensor). base: the lens's own ratio × 100 on its camera (200 for a 2× sensor of a logical camera; absent = 100).
+  Pan works over the camera's field of view at ratio 1, so a receiver needs it to map drags (below).
 
 ### 6.6 CAPS_SELECT (0x0021) — receiver's choice
 Tag 1 codec_id u8, 2 width u16, 3 height u16, 4 fps_num u16, 5 fps_den u16, 6 bitrate_kbps u32,
@@ -216,9 +218,10 @@ CONTROL payload: tag 1 `req_id` u32, then exactly one command tag:
 
 **Pan (1.1).** Zoom and pan happen on the camera, not on finished frames: zoom is `CONTROL_ZOOM_RATIO` (so a logical
 multi-camera switches sensors itself), pan moves `SCALER_CROP_REGION` over the lens's full field of view. At zoom Z
-(relative to the lens, Z > 1) the visible crop is 1/Z of the field of view per axis; pan 0 puts it against the left
-(top) edge, 65535 against the right (bottom) edge. At Z ≤ 1 there's nothing to pan and it's ignored. A receiver that
-drags the picture by d (fraction of the visible width) changes pan by −d · (1/Z) / (1 − 1/Z) · 65535. Sent only when
+= base × zoom (both from CAPS/CONTROL_STATE, as ratios) the visible crop is 1/Z of the camera's field of view per
+axis; pan 0 puts it against the left (top) edge, 65535 against the right (bottom) edge. At Z ≤ 1 there's nothing to
+pan and it's ignored. A receiver that drags the picture by d (fraction of the visible width) changes pan by
+−d · (1/Z) / (1 − 1/Z) · 65535. Sent only when
 the negotiated minor is ≥ 1.
 
 CONTROL_ACK: tag 1 `req_id`, tag 2 `result` u8 (0 OK, 1 UNSUPPORTED, 2 FAILED, 3 BUSY).

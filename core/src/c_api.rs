@@ -82,6 +82,7 @@ pub unsafe extern "C" fn lenny_sender_create(
                         modes,
                         zoom_min: lc.map_or(0, |lc| lc.zoom_min),
                         zoom_max: lc.map_or(0, |lc| lc.zoom_max),
+                        zoom_base: lc.map_or(0, |lc| lc.zoom_base),
                     }
                 })
                 .collect(),

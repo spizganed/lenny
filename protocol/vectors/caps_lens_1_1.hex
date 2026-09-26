@@ -1,5 +1,5 @@
 # CAPS with per-lens modes and zoom range (protocol 1.1)
-4C 59 01 01  20 00  00 00  70 00 00 00          # header: v1.1, type=CAPS, len=112
+4C 59 01 01  20 00  00 00  76 00 00 00          # header: v1.1, type=CAPS, len=118
 02 00 18 00                                     # mode list, len=24
    01 00 02 00 80 07                            #   width=1920
    02 00 02 00 38 04                            #   height=1080
@@ -7,7 +7,7 @@
    04 00 02 00 01 00                            #   fps_den=1
 03 00 04 00 40 1F 00 00                         # max_bitrate_kbps=8000
 04 00 08 00 C0 01 00 00 00 00 00 00             # controls = LENS | ZOOM | PAN
-05 00 3C 00                                     # lens list, len=60
+05 00 42 00                                     # lens list, len=66
    01 00 01 00 00                               #   lens_id=0
    02 00 01 00 00                               #   facing=back
    03 00 02 00 31 78                            #   label="1x"
@@ -16,6 +16,7 @@
       02 00 02 00 D0 02                         #     height=720
       03 00 02 00 1E 00                         #     fps_num=30
       04 00 02 00 01 00                         #     fps_den=1
-   05 00 0C 00                                  #   zoom_range (1.1), len=12
+   05 00 12 00                                  #   zoom_range (1.1), len=18
       01 00 02 00 3C 00                         #     min=60 (0.6x)
       02 00 02 00 E8 03                         #     max=1000 (10x)
+      03 00 02 00 64 00                         #     base=100 (this is the 1x lens)

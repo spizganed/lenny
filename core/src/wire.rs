@@ -550,6 +550,9 @@ pub struct Lens {
     /// 1.1: CONTROL zoom range for this lens, ratio x100 relative to the lens (0/0 = unknown).
     pub zoom_min: u16,
     pub zoom_max: u16,
+    /// 1.1: the lens's own zoom ratio x100 on its camera (60 for a 0.6x sensor of a logical camera; 0 = 100).
+    /// Pan works over the camera's field of view at ratio 1, so this is what a receiver needs to map a drag.
+    pub zoom_base: u16,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -627,6 +630,9 @@ impl Message for Caps {
                     let z = w.begin_list(5);
                     w.u16(1, lens.zoom_min);
                     w.u16(2, lens.zoom_max);
+                    if lens.zoom_base != 0 {
+                        w.u16(3, lens.zoom_base);
+                    }
                     w.end_list(z);
                 }
             }
@@ -670,6 +676,7 @@ impl Message for Caps {
                     5 => each(x, |zt, zx| match zt {
                         1 => set(&mut l.zoom_min, zx),
                         2 => set(&mut l.zoom_max, zx),
+                        3 => set(&mut l.zoom_base, zx),
                         _ => true,
                     }),
                     _ => true,

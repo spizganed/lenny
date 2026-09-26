@@ -233,6 +233,7 @@ pub struct lenny_lens_caps {
     pub mode_count: usize,
     pub zoom_min: u16,
     pub zoom_max: u16,
+    pub zoom_base: u16,
 }
 
 #[repr(C)]

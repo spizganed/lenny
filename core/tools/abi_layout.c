@@ -32,7 +32,7 @@ int main(void) {
     O(lenny_sender_config, exposure_comp_max); O(lenny_sender_config, exposure_comp_step_milli);
     O(lenny_sender_config, lens_caps);
     S(lenny_lens_caps); O(lenny_lens_caps, modes); O(lenny_lens_caps, mode_count); O(lenny_lens_caps, zoom_min);
-    O(lenny_lens_caps, zoom_max);
+    O(lenny_lens_caps, zoom_max); O(lenny_lens_caps, zoom_base);
     S(lenny_sender_callbacks); O(lenny_sender_callbacks, user); O(lenny_sender_callbacks, on_state);
     O(lenny_sender_callbacks, on_stream_config); O(lenny_sender_callbacks, on_control);
     O(lenny_sender_callbacks, on_bitrate);

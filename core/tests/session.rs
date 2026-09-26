@@ -135,8 +135,8 @@ const MODES: [lenny_mode; 3] = [
 struct LensCaps([lenny_lens_caps; 2]);
 unsafe impl Sync for LensCaps {}
 static LENS_CAPS: LensCaps = LensCaps([
-    lenny_lens_caps { modes: MODES.as_ptr(), mode_count: 2, zoom_min: 100, zoom_max: 800 },
-    lenny_lens_caps { modes: MODES.as_ptr(), mode_count: 1, zoom_min: 0, zoom_max: 0 },
+    lenny_lens_caps { modes: MODES.as_ptr(), mode_count: 2, zoom_min: 100, zoom_max: 800, zoom_base: 100 },
+    lenny_lens_caps { modes: MODES.as_ptr(), mode_count: 1, zoom_min: 0, zoom_max: 0, zoom_base: 0 },
 ]);
 impl LensCaps {
     fn as_ptr(&self) -> *const lenny_lens_caps {
@@ -737,6 +737,7 @@ fn struct_layouts_match_header() {
     o!(lenny_lens_caps, mode_count);
     o!(lenny_lens_caps, zoom_min);
     o!(lenny_lens_caps, zoom_max);
+    o!(lenny_lens_caps, zoom_base);
     s!(lenny_sender_callbacks);
     o!(lenny_sender_callbacks, user);
     o!(lenny_sender_callbacks, on_state);
