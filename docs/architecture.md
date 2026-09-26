@@ -69,7 +69,9 @@ fed from the same decoded NV12 frames.
     state/                ← Riverpod providers
     core_bindings/        ← ffigen output (generated, don't edit)
 /core       Rust crate lenny_core (cdylib + staticlib + rlib), C ABI in include/lenny/lenny.h, tests in core/tests
-/vcam       Rust crate lenny_vcam: IVirtualCamera trait + backends (v4l2loopback, null)
+/framebuf   Rust crate lenny_framebuf: §7.3 shared-memory ring format (writer + bounds-checked reader), no deps
+/vcam       Rust crate lenny_vcam: IVirtualCamera trait + backends (v4l2loopback, Windows shm writer, null)
+  com/                  lenny_vcam_com.dll: DirectShow filter + MF media source (§7.4), Rust, reads framebuf only
 /desktop    Rust desktop receiver (egui): Linux now, Windows next (§7a)
 /plugins
   android_camera/         Kotlin: Camera2, MediaCodec encoder, NsdManager, foreground service
@@ -254,6 +256,11 @@ and the vcam shows the last good frame for ≤ 500 ms, then the placeholder.
 - A reader treats the source as dead if `producer_heartbeat_ms` is > 1 s old and switches to the placeholder.
 
 ### 7.4 Virtual camera backends
+Implementation (Phase B): both live in one Rust COM DLL, `vcam/com` (`lenny_vcam_com.dll`, x64 and x86, windows-rs, no
+lenny_core). The writer is `lenny_vcam::WindowsCamera` in the desktop app. No broker service yet: the app creates
+`Global\` names when it may, else falls back to `Local\`, which the DirectShow filter sees and Frame Server doesn't.
+The C++/plugin wording below is the original plan; the design (shm, crash containment, naming) carries over as is.
+
 Both read the same shared memory, and both do their own scale/letterbox and color convert
 to the format the consumer picked, so the receiver app writes one frame at one size.
 
@@ -330,9 +337,10 @@ backends.
   level on the phone), torch; Auto | Manual (tap-to-focus holds, EV, exposure lock); video modes from the selected
   lens's own list; stats; virtual camera status ("active" or "unavailable in this environment").
 - **`lenny_vcam`**: `IVirtualCamera { open(format), write_frame(&[u8]), close(), is_real(), describe() }`, I420.
-  Backends: `V4l2LoopbackCamera` (Linux; finds a v4l2loopback device or tries `modprobe` once) and
-  `NullVirtualCamera` (writes `frames.log` and a rolling `latest.i420` sample). `open_best` falls back to null and
-  logs why. Windows adds `DirectShowCamera` and `MfVirtualCamera` behind the same trait (§7.4's design).
+  Backends: `V4l2LoopbackCamera` (Linux; finds a v4l2loopback device or tries `modprobe` once),
+  `WindowsCamera` (writes the §7.3 ring as NV12 for the `vcam/com` DLL's two cameras, and registers the MF camera
+  on Win11) and `NullVirtualCamera` (writes `frames.log` and a rolling `latest.i420` sample). `open_best` falls back
+  to null and logs why.
 - **Testing without a phone**: `lenny_desktop::fake_phone` (synthetic camera → openh264 → core sender; zoom/pan move
   its fake sensor crop). `cargo run -p lenny_desktop --example fake_phone -- 127.0.0.1 47474 [--portrait]`.
 
@@ -427,7 +435,7 @@ macOS receiver: **dropped** (decision 2026-09-25). The protocol keeps `platform=
   x86). `core/CMakeLists.txt` wraps cargo for CMake consumers (Windows, not yet built there).
 - Flutter: `flutter build apk` / `flutter build windows`. ffigen runs in CI and a diff check keeps bindings in sync.
 - CI: GitHub Actions `core.yml` — fmt, clippy, tests, ABI check and the C ABI test on Linux; cargo-ndk build for Android.
-  Windows jobs return with the Windows desktop app. Fuzzing of `wire` decode (cargo-fuzz) is still to do.
+  `windows` job: clippy + workspace tests on MSVC x64, the virtual camera tests as x86 too, regsvr32 round trip. Fuzzing of `wire` decode (cargo-fuzz) is still to do.
 
 ## 13. Milestone risk register (top items)
 

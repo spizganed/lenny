@@ -7,6 +7,10 @@ Automated:
 - `vcam/`: `cargo test -p lenny_vcam` (compose/rotate/letterbox, placeholder, null backend, v4l2 ioctl numbers).
 - `desktop/`: `cargo test -p lenny_desktop`: QR link format, known phones, and `tests/loopback.rs`: fake phone ->
   core -> decode -> preview/virtual camera, zoom/pan/focus/Auto round trips, mid-stream mode switch. Headless.
+- `vcam/com/` (Windows only, CI `windows` job): `cargo test -p lenny_vcam_com` (also `--target i686-pc-windows-msvc`):
+  DirectShow filter in a real filter graph, MF source through IMFActivate like Frame Server (placeholder frames).
+  CI also runs regsvr32 register/unregister on both builds.
+- `framebuf/`: `cargo test -p lenny_framebuf` (ring layout, seqlock under a racing writer, corrupt header).
 - `plugins/android_camera`: `./gradlew :android_camera:testDebugUnitTest` (from `app/android`): zoom/pan crop math,
   mode matching (JVM, no device).
 - `app/test/mode_controls_test.dart`: Auto/Manual widget behaviour.
@@ -78,3 +82,22 @@ v4l2loopback). Screenshots in `docs/screenshots/desktop-linux-*.png`.
 | 7 | Narrow window (560 px) | One column: preview, then cards | ✅ |
 | 8 | Real phone over Wi-Fi, real v4l2loopback consumers (Chrome, OBS, Zoom) | Camera visible and live in each | not run: needs a local machine |
 | 9 | Windows 10/11 | — | not started (ADR-0007) |
+
+## Windows virtual cameras (Rust, `vcam/com`)
+
+Not run yet: written in the cloud sandbox; only the in-process CI tests have exercised it.
+
+Setup (elevated prompt): `cargo build --release -p lenny_vcam_com` and
+`cargo build --release -p lenny_vcam_com --target i686-pc-windows-msvc`, then `regsvr32 target\release\lenny_vcam_com.dll`
+and `%WINDIR%\SysWOW64\regsvr32 target\i686-pc-windows-msvc\release\lenny_vcam_com.dll`. Unregister with `/u`.
+Then `lenny-desktop` plus a phone or the fake phone.
+
+| # | Step | Expected | Win10 | Win11 |
+|---|---|---|---|---|
+| 1 | Desktop app not running, open the camera in OBS | "Lenny" (Win11 also "Lenny (Classic)"), placeholder | | |
+| 2 | Start the app, phone streams | Live picture within 1 s, upright | | |
+| 3 | Quit the app while a consumer is open | Last frame ≤ 0.5 s, then placeholder; consumer doesn't crash | | |
+| 4 | Chrome/Edge getUserMedia (webcamtests.com) | Camera listed, live | | |
+| 5 | Zoom, Teams, Discord | Camera listed, live, call keeps running through app restarts | | |
+| 6 | 32-bit consumer (a 32-bit DirectShow app, e.g. AMCap x86) | Live | | |
+| 7 | Standard (non-admin) user | App falls back to `Local\`: DirectShow live; MF camera placeholder until the broker exists | | |

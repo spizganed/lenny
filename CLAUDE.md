@@ -56,7 +56,8 @@ Status (2026-09-26, end of the cloud session):
 - **Android**: per-lens camera discovery, capture-level zoom/pan, Auto/Manual
   modes, all on Camera2. APK builds with the Rust core via cargo-ndk. Real
   camera behaviour (AF, exposure, lenses) is untested — needs a real phone.
-- **Windows**: entirely pending; next up (see the Handoff section below).
+- **Windows**: virtual camera backends written, with in-process tests in the CI `windows` job; not yet run against real apps
+  (Handoff step 2). Desktop app not built on Windows yet.
 
 ## Handoff: next session runs on the Windows PC (CLI agent)
 
@@ -74,41 +75,39 @@ Do these in order:
    Desktop table, add a row per consumer). Fastest Linux setup on the PC:
    `tools/linux-test-vm.ps1` (untested on Windows itself: if the VirtualBox
    install or the IMAPI2 seed-ISO step fails, fix the script first).
-2. **Next task: Windows virtual camera backends**, both of them (non-negotiable
-   rule above), behind the existing `IVirtualCamera` trait so `lenny_desktop`
-   needs no Windows special-casing beyond `lenny_vcam::open_best`.
-   - Spike first (Phase B note above): prove `windows-rs` can implement and
-     register a DirectShow source filter (`#[implement]` COM classes,
-     `DllGetClassObject` / `DllRegisterServer`) and call `MFCreateVirtualCamera`
-     (mfsensorgroup.dll, Win11 22000+) before building out. C++ shim only for a
-     COM interface windows-rs really lacks.
-   - Shape (architecture §7.3–7.4, keep it): the desktop app writes frames into
-     a `Global\LennyFrames_v1` shared-memory ring (seqlock slots, heartbeat,
-     state); both backends only read it. Put the ring **format** in a small
-     crate/module with no lenny_core or network dependency, shared by writer and
-     readers. `Global\` needs `SeCreateGlobalPrivilege`: broker service per §7.3
-     (or prove a simpler creation path works for a standard user and the MF
-     Frame Server, and record that in an ADR).
-   - Writer side: new `lenny_vcam` backends (`DirectShowCamera`,
-     `MfVirtualCamera`, or one shm writer plus MF registration) implementing
-     `IVirtualCamera`; `open_best` on Windows opens both. Frames arrive as I420
-     1280×720 (`receiver.rs` `VCAM`); convert to NV12/YUY2 in the readers.
-   - DirectShow filter DLL: its own cdylib, built for x64 **and** x86
-     (`x86_64-pc-windows-msvc`, `i686-pc-windows-msvc`), no lenny_core. It runs
-     inside Zoom/Teams/Chrome: every COM entry and the streaming thread wrapped
-     in `catch_unwind` (so no `panic = "abort"` for that crate), no raw reads
-     outside the checked mapping size, fault ⇒ placeholder-only mode, never a
-     crash. Rust can't catch SEH access violations, so bounds-check everything.
-     Name "Lenny (Classic)" on Win11, "Lenny" on Win10.
-   - MF media source DLL: registered for Frame Server (runs as LOCAL SERVICE,
-     session 0: hence `Global\` + the ACL in §7.3). Name "Lenny".
-   - Placeholder frame when the heartbeat is > 1 s old: reuse
-     `lenny_vcam::frame::placeholder_i420`'s look.
-   - Test on Windows 10 **and** 11 with Zoom, Teams, Discord, Chrome/Edge
-     (getUserMedia) and OBS, on a standard (non-admin) user too. Add a
-     Windows smoke-test table to `docs/testing.md`.
-   - Add a `windows-latest` job to `.github/workflows/core.yml` (workspace
-     build/test with MSVC, plus the x86 filter build).
+2. **Windows virtual camera backends: written in the cloud, never run on a real
+   Windows desktop.** They exist and compile for x64 and x86. The CI `windows` job
+   drives them in-process: DirectShow in a real filter graph, MF through
+   IMFActivate. It also round-trips regsvr32. Nothing has seen Zoom and the rest
+   yet. What exists:
+   - `framebuf/` (`lenny_framebuf`): the §7.3 shared-memory ring format
+     (seqlock slots, heartbeat, state, bounds-checked `Reader`), CLSIDs. No deps.
+   - `vcam/src/windows.rs` (`WindowsCamera`, what `open_best` returns on
+     Windows): creates `Global\LennyFrames_v1` (falls back to `Local\` without
+     `SeCreateGlobalPrivilege`), writes each I420 frame as NV12, and on Win11
+     calls `MFCreateVirtualCamera` (Session lifetime, current user) if the MF
+     class is registered. `is_real()` = DirectShow class registered.
+   - `vcam/com/` (`lenny_vcam_com.dll`, one DLL for both COM classes):
+     `filter.rs` DirectShow push source (1280×720 NV12/YUY2 30 fps,
+     IAMStreamConfig, IKsPropertySet, graph-clock timestamps), `mf.rs` MF media
+     source (SimpleMediaSource shape), `frames.rs` shared picture choice (live,
+     last good ≤ 500 ms, placeholder), `server.rs` class factory + regsvr32
+     registration ("Lenny (Classic)" on Win11, "Lenny" on Win10; MF "Lenny").
+     Every COM entry and both streaming threads run in `catch_unwind`, and a
+     panic switches to placeholder-only.
+   Still to do, in order:
+   - Build and `regsvr32` both DLLs (x64, plus x86 from SysWOW64), run
+     `lenny-desktop` with the fake phone, and check the camera in OBS, Chrome/Edge,
+     Zoom, Teams and Discord on Win10 **and** Win11. Fill in the Windows table
+     in `docs/testing.md`. Expect bugs: this is COM code that has never run
+     against real consumers.
+   - `Global\` for a standard user: the broker service (§7.3) is not written.
+     Without it the app falls back to `Local\`, which works for the DirectShow
+     filter in the same session. The MF camera (Frame Server, session 0) then
+     only shows the placeholder. Decide broker vs. alternative in an ADR.
+   - The DirectShow side is Win10's only camera and must work alone. The MF side
+     is Win11 only. If both show up in MF-aware apps, revisit naming (R5).
+   - One size (1280×720). Add 1080p once the desktop writes a 1080p canvas.
 3. **Then:** build `lenny_desktop` on Windows (expected to work as-is: winit
    chrome, openh264 from source), retire the Flutter desktop +
    `plugins/windows_receiver` once the Rust app has the Windows camera
