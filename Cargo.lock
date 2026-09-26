@@ -1667,6 +1667,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "lenny_framebuf"
+version = "0.1.0"
+
+[[package]]
 name = "lenny_vcam"
 version = "0.1.0"
 dependencies = [

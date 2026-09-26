@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "vcam", "desktop"]
+members = ["core", "framebuf", "vcam", "desktop"]
 
 [profile.release]
 lto = "thin"

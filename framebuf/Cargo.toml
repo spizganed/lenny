@@ -1,0 +1,12 @@
+[package]
+name = "lenny_framebuf"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Shared-memory frame ring format (architecture.md §7.3): the desktop app writes, virtual camera DLLs read."
+license = "UNLICENSED"
+publish = false
+
+# No dependencies on purpose: the DirectShow filter and the MF media source link this and run inside other
+# processes (Zoom, Chrome, Frame Server). It must stay small, allocation-free on the read path and panic-free.
+[dependencies]
