@@ -33,6 +33,9 @@ pub const EVENT_NAME: &str = "Global\\LennyFrameReady_v1";
 /// DirectShow consumers in the same session still work, Frame Server doesn't.
 pub const LOCAL_MAPPING_NAME: &str = "Local\\LennyFrames_v1";
 pub const LOCAL_EVENT_NAME: &str = "Local\\LennyFrameReady_v1";
+/// COM class ids of the two camera DLLs. The installer (or regsvr32) registers them; the app checks for them.
+pub const DSHOW_FILTER_CLSID: &str = "{BEEEF45F-D1F1-4A35-8F7D-17E756BC2046}";
+pub const MF_SOURCE_CLSID: &str = "{5F0F9024-D043-45C1-B2F6-03DAB6CE130A}";
 /// A reader shows its placeholder when the heartbeat is older than this.
 pub const STALE_MS: u64 = 1000;
 

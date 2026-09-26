@@ -10,10 +10,14 @@ pub mod frame;
 mod null;
 #[cfg(target_os = "linux")]
 mod v4l2;
+#[cfg(windows)]
+mod windows;
 
 pub use null::NullVirtualCamera;
 #[cfg(target_os = "linux")]
 pub use v4l2::V4l2LoopbackCamera;
+#[cfg(windows)]
+pub use windows::WindowsCamera;
 
 pub type Result<T> = std::result::Result<T, String>;
 
@@ -54,7 +58,18 @@ pub fn open_best(format: FrameFormat) -> Box<dyn IVirtualCamera> {
         }
         Err(e) => e,
     };
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
+    let why = {
+        let mut cam = WindowsCamera::new();
+        match cam.open(format) {
+            Ok(()) => {
+                log::info!("virtual camera: {}", cam.describe());
+                return Box::new(cam);
+            }
+            Err(e) => e,
+        }
+    };
+    #[cfg(not(any(target_os = "linux", windows)))]
     let why = String::from("no virtual camera backend for this OS yet");
     log::warn!("virtual camera: running in NULL mode (frames go to files, no app can see them): {why}");
     let mut null = NullVirtualCamera::new(null::default_dir(), why);
