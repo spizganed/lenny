@@ -81,7 +81,26 @@ v4l2loopback). Screenshots in `docs/screenshots/desktop-linux-*.png`.
 | 6 | Title bar: maximize, restore, double-click, drag, minimize, close; edge resize | Real window changes | ✅ via xdotool: 1200x800 -> 1600x1000 -> back; moved; hidden; exit 0; 1200 -> 840 px wide |
 | 7 | Narrow window (560 px) | One column: preview, then cards | ✅ |
 | 8 | Real phone over Wi-Fi, real v4l2loopback consumers (Chrome, OBS, Zoom) | Camera visible and live in each | not run: needs a local machine |
-| 9 | Windows 10/11 | — | not started (ADR-0007) |
+| 9 | Windows 10/11 | — | Windows 11 run below |
+
+## Desktop (Rust) on Windows 11, real phone
+
+Last run: 2026-09-26, Windows 11 Pro PC, Nothing Phone (3a) release APK from this branch, over Wi-Fi.
+
+| # | Step | Expected | Result |
+|---|---|---|---|
+| 1 | `cargo test --workspace`, fmt, clippy, `flutter analyze`/`test` on Windows | All pass | ✅ |
+| 2 | `cargo build --release -p lenny_desktop` on Windows | Builds as-is | ✅ |
+| 3 | `flutter build apk --release` | Builds with the Rust core | ✅ after `rustup target add i686-linux-android` (all four Android targets are needed) |
+| 4 | Real phone connects to `lenny-desktop` | Live preview + stats | ✅ 1920x1080 30 fps, ~5 ms round trip, 34-58 ms latency |
+| 5 | Lens list | Per-lens buttons from the phone | ✅ 0.6x, 1x, 2x, Front; portrait phone shows 9:16 preview |
+| 6 | Restart the desktop app | Phone reconnects by itself | ✅ |
+| 7 | Virtual camera | — | not run: `regsvr32` needs an elevated prompt (non-admin fails with code 5) |
+
+`tools/linux-test-vm.ps1` on this PC: the script itself works (VirtualBox via winget, IMAPI2 seed ISO, VM boots,
+cloud-init runs), but with Hyper-V on (WSL2 / VBS) VirtualBox runs on top of it and the guest hits RCU stalls and
+soft lockups (4 and 2 vCPUs alike), and bridging over a USB Wi-Fi adapter downloaded at ~60 kB/s (NAT: normal).
+Linux testing needs a different VM setup (e.g. Hyper-V itself); not done yet.
 
 ## Windows virtual cameras (Rust, `vcam/com`)
 

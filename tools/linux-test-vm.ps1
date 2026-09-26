@@ -6,6 +6,8 @@
 .DESCRIPTION
   No OS installer: it boots Ubuntu's ready-made cloud disk and cloud-init does the setup on first boot
   (20-40 min, then it reboots into the desktop, logged in as lenny/lenny).
+  Known bad: a PC with Hyper-V on (WSL2, VBS/Memory Integrity). VirtualBox then runs on top of Hyper-V and the guest
+  stalls (RCU stalls, soft lockups). Bridging over Wi-Fi can also be very slow; see docs/testing.md.
   Run from an elevated PowerShell:   powershell -ExecutionPolicy Bypass -File tools\linux-test-vm.ps1
   Start over:                        & "$env:ProgramFiles\Oracle\VirtualBox\VBoxManage.exe" unregistervm lenny-linux --delete
 
