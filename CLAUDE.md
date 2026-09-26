@@ -47,10 +47,18 @@ drift, it won't happen automatically like it would in one shared codebase.
 superseding ADR before assuming which phase applies. If unclear, ask rather
 than guessing which architecture is currently in force.
 
-Status (2026-09-26): the core port is done — `/core` is Rust (ADR-0006), C ABI
-unchanged and checked by `core/tools/abi_check.sh`, Android links it via
-cargo-ndk. Windows-side linkage/build (`core/CMakeLists.txt` wrapping cargo
-for `plugins/windows_receiver`) is written but pending a local Windows session.
+Status (2026-09-26, end of the cloud session):
+- **Core**: ported to Rust and tested (ADR-0006). C ABI unchanged and checked by
+  `core/tools/abi_check.sh`; wire protocol now 1.1 (per-lens modes/zoom, pan).
+- **Linux desktop receiver** (`/desktop`, Rust/egui, ADR-0007): working end to
+  end with a synthetic phone. Virtual camera ran on the **null backend** (the
+  sandbox can't load v4l2loopback); the real v4l2loopback path needs a local run.
+- **Android**: per-lens camera discovery, capture-level zoom/pan, Auto/Manual
+  modes, all on Camera2. APK builds with the Rust core via cargo-ndk. Real
+  camera behaviour (AF, exposure, lenses) is untested — needs a real phone.
+- **Windows**: entirely pending. Port the Task 7 chrome/UI layer as-is and write
+  only new `IVirtualCamera` backends (DirectShow + MF); `core/CMakeLists.txt`
+  (cargo wrapper for the old Flutter plugin) is also unbuilt on Windows.
 
 **Desktop build order: Linux first, Windows later, most of it shared.** The
 Rust desktop receiver (egui or iced, over `winit`) is being built and tested

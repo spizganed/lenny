@@ -1,6 +1,7 @@
 # Lenny — Architecture
 
-Status: **draft for review** (pre-M1). No implementation code exists yet.
+Status: living document. Phase A (core port to Rust) is done; the Phase B desktop receiver exists for Linux
+(§7a) and replaces the Flutter/C++ Windows receiver described in §7 once its Windows virtual-camera backends exist.
 
 Lenny turns a phone into a webcam. **Sender** = phone app (Android now, iOS later).
 **Receiver** = desktop app (Windows now, Linux later; macOS is out of scope) that decodes the stream
@@ -69,6 +70,7 @@ fed from the same decoded NV12 frames.
     core_bindings/        ← ffigen output (generated, don't edit)
 /core       Rust crate lenny_core (cdylib + staticlib + rlib), C ABI in include/lenny/lenny.h, tests in core/tests
 /vcam       Rust crate lenny_vcam: IVirtualCamera trait + backends (v4l2loopback, null)
+/desktop    Rust desktop receiver (egui): Linux now, Windows next (§7a)
 /plugins
   android_camera/         Kotlin: Camera2, MediaCodec encoder, NsdManager, foreground service
   windows_receiver/       C++: MF decoder, shm writer, DNS-SD browse, adb helper, preview texture
@@ -302,6 +304,38 @@ to the format the consumer picked, so the receiver app writes one frame at one s
   The receiver listens on all interfaces, and the phone connects to the tethering gateway's peer.
   The receiver lists the RNDIS adapter IP in the USB dropdown ("USB tethering: 192.168.42.129").
 
+## 7a. Desktop receiver in Rust (Phase B; Linux now, Windows next — ADR-0007)
+
+`/desktop` (crate `lenny_desktop`): eframe/egui over winit, linking `lenny_core` and `lenny_vcam` as Rust crates
+(no FFI). Replaces the Flutter desktop + `plugins/windows_receiver` on each OS once that OS has its virtual camera
+backends.
+
+- **Window**: borderless (`with_decorations(false)`); the title bar is drawn per docs/design.md and wired to real
+  viewport commands: minimize, maximize/restore, close, `StartDrag` on the bar, double-click to maximize,
+  `BeginResize` on the window edges. Same winit calls on Windows.
+- **Layout**: computed from the window size every frame (fractions + clamps). Wide: preview hero + a control column
+  (31 % of the width, 340–440 px). Narrow (< 1000 px): one scrolling column.
+- **Engine** (`receiver.rs`): the core receiver session; callbacks only queue (bounded, drop → keyframe request).
+  Decoder thread: openh264 (built from source by the crate: no system libraries, same on MSVC, BSD licence).
+  OpenH264 officially decodes Constrained Baseline, which is what Android's encoder produces by default (we don't
+  request a profile); it also has CABAC (Main/High) decoding, and it rejects frames over 1 MB (check 4K at high
+  bitrates on a real phone). Decoded I420 goes (a) into the fixed 1280×720 virtual-camera canvas (rotated
+  upright, letterboxed) and (b) into the preview at the frame's own aspect ratio.
+  Virtual-camera thread: steady 30 fps; the last good frame for ≤ 500 ms, then a placeholder (dotted page + reason:
+  "waiting for phone", "phone paused"...). Discovery thread: answers `LENNY?1` on UDP 47474. QR tokens: 90 s, renewed
+  every 80 s and after each pairing. Phones that streamed once are saved (`known_phones.txt` in the config dir).
+- **Preview** (Task 6): the box is sized to the decoded frame's real aspect ratio after rotation, never the
+  requested one and never a hardcoded 16:9; it re-measures when the size changes, and never stretches.
+- **Controls**: lens, zoom (slider and mouse wheel), drag-to-pan on the preview when zoomed (protocol 1.1 pan, capture-
+  level on the phone), torch; Auto | Manual (tap-to-focus holds, EV, exposure lock); video modes from the selected
+  lens's own list; stats; virtual camera status ("active" or "unavailable in this environment").
+- **`lenny_vcam`**: `IVirtualCamera { open(format), write_frame(&[u8]), close(), is_real(), describe() }`, I420.
+  Backends: `V4l2LoopbackCamera` (Linux; finds a v4l2loopback device or tries `modprobe` once) and
+  `NullVirtualCamera` (writes `frames.log` and a rolling `latest.i420` sample). `open_best` falls back to null and
+  logs why. Windows adds `DirectShowCamera` and `MfVirtualCamera` behind the same trait (§7.4's design).
+- **Testing without a phone**: `lenny_desktop::fake_phone` (synthetic camera → openh264 → core sender; zoom/pan move
+  its fake sensor crop). `cargo run -p lenny_desktop --example fake_phone -- 127.0.0.1 47474 [--portrait]`.
+
 ## 8. QR quick-connect
 
 - Desktop renders `lenny://c?v=1&h=<ip>[,<ip>…]&p=47474&t=<token>&n=<pc name>` (URI, not JSON,
@@ -380,7 +414,7 @@ Connect success → auto-collapse.
 | Platform | New code only | Notes |
 |---|---|---|
 | iOS sender | Swift plugin: AVFoundation capture, VideoToolbox H.264, NWBrowser discovery, background mode limits | iOS can't keep the camera running in the background, so streaming requires the app in the foreground. Tell users. Needs `NSLocalNetworkUsageDescription` + `NSBonjourServices` (`_lenny._tcp`) in Info.plist, or iOS 14+ silently blocks LAN connects. No ADB on iOS: USB path is Personal Hotspot over USB (same idea as tethering). |
-| Linux receiver | C++: VA-API/FFmpeg decode, v4l2loopback writer, Avahi | DKMS module; Secure Boot requires MOK-signed module. PipeWire camera backend as a later option. |
+| Linux receiver | Built (§7a): Rust desktop app, openh264 decode, v4l2loopback via `lenny_vcam`, UDP discovery | v4l2loopback is a DKMS module; Secure Boot requires a MOK-signed module. PipeWire camera backend as a later option. |
 
 The core, protocol and Flutter UI are unchanged in both.
 

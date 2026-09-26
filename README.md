@@ -15,7 +15,15 @@ the desktop app is where you pick the camera, resolution, frame rate, focus and 
 
 ## Status
 
-Early and in progress. What works today, on **Android → Windows**:
+Early and in progress. The core is Rust now (ADR-0006) and the new desktop app is a Rust app, built and tested on
+**Linux first** (ADR-0007; screenshots below, from the build sandbox with a synthetic phone). Windows moves to the
+same app next; until then the Windows desktop is the Flutter one.
+
+<p align="center">
+  <img src="docs/screenshots/desktop-linux-streaming.png" alt="Lenny Desktop (Rust, Linux) streaming" width="720">
+</p>
+
+What works today, on **Android → Windows** (Flutter desktop):
 
 - Live H.264 stream over Wi-Fi, around 100 ms end to end on a home network.
 - Pairing: scan the QR code on the PC, tap *Find PCs*, or type the address. Phones you allowed once reconnect without asking.
@@ -72,12 +80,21 @@ cargo test --workspace
 core/tools/abi_check.sh   # the Rust core still exports exactly include/lenny/lenny.h (needs cbindgen, clang)
 ```
 
+Linux desktop (Rust):
+
+```sh
+cargo run --release -p lenny_desktop                     # the app; falls back to a null virtual camera without v4l2loopback
+sudo modprobe v4l2loopback exclusive_caps=1 card_label=Lenny   # for a real /dev/videoN other apps can open
+cargo run -p lenny_desktop --example fake_phone -- 127.0.0.1 47474   # no phone at hand
+```
+
 ## How it's built
 
 | Part | What |
 | --- | --- |
 | `core/` | Rust library shared by every platform: protocol, sessions, pairing, clock sync. C ABI (`include/lenny/lenny.h`). |
 | `vcam/` | Virtual camera behind one trait: v4l2loopback on Linux, a null (file) backend anywhere. |
+| `desktop/` | Rust desktop app (egui): Linux now, Windows next. |
 | `app/` | Flutter app, one codebase: phone UI on Android, desktop UI on Windows. |
 | `plugins/android_camera` | Camera2 capture + MediaCodec H.264 encoder (Kotlin + JNI). |
 | `plugins/windows_receiver` | Media Foundation decoder + preview texture (C++). |
