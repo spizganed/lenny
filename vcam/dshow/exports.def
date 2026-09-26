@@ -1,0 +1,6 @@
+; Undecorated names for the x86 (stdcall) build; harmless on x64.
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE
+    DllRegisterServer PRIVATE
+    DllUnregisterServer PRIVATE

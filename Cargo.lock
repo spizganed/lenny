@@ -1681,6 +1681,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lenny_vcam_dshow"
+version = "0.1.0"
+dependencies = [
+ "lenny_framebuf",
+ "lenny_vcam",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"

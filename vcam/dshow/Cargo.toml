@@ -1,0 +1,32 @@
+[package]
+name = "lenny_vcam_dshow"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Lenny's DirectShow virtual camera filter (Windows 10/11, x64 and x86). Reads lenny_framebuf only."
+license = "UNLICENSED"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Loaded into other apps (Zoom, Teams, Chrome, OBS). No lenny_core, no network code (architecture.md §7.4).
+[target.'cfg(windows)'.dependencies]
+lenny_framebuf = { path = "../../framebuf" }
+lenny_vcam = { path = ".." }
+windows-core = "0.62"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Media",
+    "Win32_Media_DirectShow",
+    "Win32_Media_KernelStreaming",
+    "Win32_Media_MediaFoundation",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Registry",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+] }
