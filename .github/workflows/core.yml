@@ -39,6 +39,36 @@ jobs:
         env:
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
 
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: i686-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test (x64; includes the virtual cameras driven in-process)
+        run: cargo test --workspace
+      - name: Virtual camera DLL tests, x86 (32-bit DirectShow apps)
+        run: cargo test -p lenny_vcam_com --target i686-pc-windows-msvc
+      - name: regsvr32 register + unregister, x64 and x86
+        shell: pwsh
+        run: |
+          cargo build --release -p lenny_vcam_com
+          cargo build --release -p lenny_vcam_com --target i686-pc-windows-msvc
+          $runs = @(
+            @("$env:WINDIR\System32\regsvr32.exe", "target\release\lenny_vcam_com.dll"),
+            @("$env:WINDIR\SysWOW64\regsvr32.exe", "target\i686-pc-windows-msvc\release\lenny_vcam_com.dll"))
+          foreach ($r in $runs) {
+            foreach ($flags in @("/s", "/s /u")) {
+              $p = Start-Process $r[0] -ArgumentList "$flags `"$(Resolve-Path $r[1])`"" -Wait -PassThru
+              if ($p.ExitCode -ne 0) { throw "regsvr32 $flags $($r[1]) failed: $($p.ExitCode)" }
+            }
+          }
+
   android:
     runs-on: ubuntu-latest
     steps:
