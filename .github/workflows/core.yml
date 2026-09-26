@@ -52,7 +52,5 @@ jobs:
           tool: cargo-ndk
       - name: cargo ndk build
         run: cargo ndk --platform 24 -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 -o jniLibs build --release -p lenny_core --lib
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
       - name: SONAME is set (the JNI shim must not link a build path)
-        run: $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -d jniLibs/arm64-v8a/liblenny_core.so | grep 'SONAME.*liblenny_core.so'
+        run: $ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -d jniLibs/arm64-v8a/liblenny_core.so | grep 'SONAME.*liblenny_core.so'

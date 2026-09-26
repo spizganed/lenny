@@ -1261,24 +1261,22 @@ impl<'a> Io<'a> {
                     }
                 }
             }
-            msg::STREAM_START => {
-                if self.phase == Phase::StreamStartWait || self.phase == Phase::Streaming {
-                    if let Some(st) = wire::StreamStart::decode(p) {
-                        if self.phase != Phase::Streaming {
-                            self.enter(Phase::Streaming, now, 0);
-                            s.streaming.store(true, SeqCst);
-                            s.set_state(LENNY_STATE_STREAMING, 0);
-                        }
-                        {
-                            let mut info = lock(&s.info);
-                            info.settings = st.0;
-                            info.has_settings = true;
-                        }
-                        if let Some(f) = cb.on_stream_start {
-                            unsafe { f(cb.user, &st.0) };
-                        }
-                        s.emit(LENNY_EVENT_STREAM_START, 0, 0);
+            msg::STREAM_START if self.phase == Phase::StreamStartWait || self.phase == Phase::Streaming => {
+                if let Some(st) = wire::StreamStart::decode(p) {
+                    if self.phase != Phase::Streaming {
+                        self.enter(Phase::Streaming, now, 0);
+                        s.streaming.store(true, SeqCst);
+                        s.set_state(LENNY_STATE_STREAMING, 0);
                     }
+                    {
+                        let mut info = lock(&s.info);
+                        info.settings = st.0;
+                        info.has_settings = true;
+                    }
+                    if let Some(f) = cb.on_stream_start {
+                        unsafe { f(cb.user, &st.0) };
+                    }
+                    s.emit(LENNY_EVENT_STREAM_START, 0, 0);
                 }
             }
             _ => {}
