@@ -1,9 +1,9 @@
 [package]
-name = "lenny_vcam_dshow"
+name = "lenny_vcam_com"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
-description = "Lenny's DirectShow virtual camera filter (Windows 10/11, x64 and x86). Reads lenny_framebuf only."
+description = "Lenny's Windows virtual cameras in one COM DLL: DirectShow filter (Win10+11, x64 and x86) and the Media Foundation virtual camera source (Win11, x64). Reads lenny_framebuf only."
 license = "UNLICENSED"
 publish = false
 
@@ -23,10 +23,12 @@ windows = { version = "0.62", features = [
     "Win32_Media_KernelStreaming",
     "Win32_Media_MediaFoundation",
     "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
     "Win32_System_LibraryLoader",
     "Win32_System_Memory",
     "Win32_System_Ole",
     "Win32_System_Registry",
     "Win32_System_SystemInformation",
     "Win32_System_SystemServices",
+    "Win32_System_Variant",
 ] }

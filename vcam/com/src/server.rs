@@ -1,5 +1,6 @@
-//! COM DLL plumbing: class factory, DllGetClassObject, and regsvr32 registration (COM class + a
-//! VideoInputDeviceCategory entry, which is what makes the filter show up as a webcam).
+//! COM DLL plumbing for both classes: class factory, DllGetClassObject, and regsvr32 registration. The DirectShow
+//! filter gets a COM class plus a VideoInputDeviceCategory entry (that's what makes it a webcam); the MF source only
+//! needs its COM class, since the desktop app creates the virtual camera with MFCreateVirtualCamera at runtime.
 
 use std::ffi::c_void;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -27,6 +28,7 @@ use lenny_framebuf as fb;
 
 use crate::filter::create_filter;
 use crate::media::FORMATS;
+use crate::mf::{create_activate, SOURCE_CLSID};
 
 /// lenny_framebuf::DSHOW_FILTER_CLSID.
 pub const FILTER_CLSID: GUID = GUID::from_u128(0xBEEEF45F_D1F1_4A35_8F7D_17E756BC2046);
@@ -50,7 +52,9 @@ pub extern "system" fn DllMain(module: HINSTANCE, reason: u32, _reserved: *mut c
 }
 
 #[implement(IClassFactory)]
-struct Factory;
+struct Factory {
+    clsid: GUID,
+}
 
 impl IClassFactory_Impl for Factory_Impl {
     fn CreateInstance(&self, outer: Ref<IUnknown>, riid: *const GUID, out: *mut *mut c_void) -> Result<()> {
@@ -62,7 +66,9 @@ impl IClassFactory_Impl for Factory_Impl {
             if outer.is_some() {
                 return Err(CLASS_E_NOAGGREGATION.into());
             }
-            unsafe { create_filter()?.query(riid, out).ok() }
+            let obj: IUnknown =
+                if self.clsid == SOURCE_CLSID { create_activate()?.cast()? } else { create_filter()?.cast()? };
+            unsafe { obj.query(riid, out).ok() }
         });
         hr.ok()
     }
@@ -85,10 +91,11 @@ pub unsafe extern "system" fn DllGetClassObject(
             return Err(E_POINTER.into());
         }
         unsafe { *out = std::ptr::null_mut() };
-        if unsafe { *clsid } != FILTER_CLSID {
+        let clsid = unsafe { *clsid };
+        if clsid != FILTER_CLSID && clsid != SOURCE_CLSID {
             return Err(CLASS_E_CLASSNOTAVAILABLE.into());
         }
-        let factory: IClassFactory = Factory.into();
+        let factory: IClassFactory = Factory { clsid }.into();
         unsafe { factory.query(riid, out).ok() }
     })
 }
@@ -135,6 +142,13 @@ fn friendly_name() -> &'static str {
     }
 }
 
+fn register_class(clsid: &str, name: &str, dll: &str) -> Result<()> {
+    let key = format!("CLSID\\{clsid}");
+    set_value(&key, PCWSTR::null(), name)?;
+    set_value(&format!("{key}\\InprocServer32"), PCWSTR::null(), dll)?;
+    set_value(&format!("{key}\\InprocServer32"), w!("ThreadingModel"), "Both")
+}
+
 fn mapper() -> Result<IFilterMapper2> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -153,10 +167,8 @@ pub extern "system" fn DllRegisterServer() -> HRESULT {
         }
         let path = String::from_utf16_lossy(&path[..n]);
         let name = friendly_name();
-        let clsid = format!("CLSID\\{}", fb::DSHOW_FILTER_CLSID);
-        set_value(&clsid, PCWSTR::null(), name)?;
-        set_value(&format!("{clsid}\\InprocServer32"), PCWSTR::null(), &path)?;
-        set_value(&format!("{clsid}\\InprocServer32"), w!("ThreadingModel"), "Both")?;
+        register_class(fb::DSHOW_FILTER_CLSID, name, &path)?;
+        register_class(fb::MF_SOURCE_CLSID, "Lenny", &path)?;
 
         let subtypes: Vec<GUID> = FORMATS.iter().map(|p| p.subtype()).collect();
         let types: Vec<REGPINTYPES> =
@@ -199,8 +211,10 @@ pub extern "system" fn DllUnregisterServer() -> HRESULT {
                 m.UnregisterFilter(&CLSID_VideoInputDeviceCategory, PCWSTR(instance.as_ptr()), &FILTER_CLSID)
             };
         }
-        let key = wide(&format!("CLSID\\{}", fb::DSHOW_FILTER_CLSID));
-        let _ = unsafe { RegDeleteTreeW(HKEY_CLASSES_ROOT, PCWSTR(key.as_ptr())) };
+        for clsid in [fb::DSHOW_FILTER_CLSID, fb::MF_SOURCE_CLSID] {
+            let key = wide(&format!("CLSID\\{clsid}"));
+            let _ = unsafe { RegDeleteTreeW(HKEY_CLASSES_ROOT, PCWSTR(key.as_ptr())) };
+        }
         Ok(())
     })
 }

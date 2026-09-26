@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use lenny_framebuf as fb;
 use windows::core::{implement, Interface, Ref, Result, GUID, HRESULT, PCWSTR, PWSTR};
-use windows::Win32::Foundation::{CloseHandle, E_NOTIMPL, E_POINTER, E_UNEXPECTED, HANDLE, S_FALSE, S_OK};
+use windows::Win32::Foundation::{E_NOTIMPL, E_POINTER, E_UNEXPECTED, S_FALSE, S_OK};
 use windows::Win32::Media::DirectShow::*;
 use windows::Win32::Media::IReferenceClock;
 use windows::Win32::Media::KernelStreaming::{IKsPropertySet, IKsPropertySet_Impl};
@@ -19,40 +19,16 @@ use windows::Win32::Media::MediaFoundation::{
     AMPROPSETID_Pin, CLSID_MemoryAllocator, FORMAT_VideoInfo, AM_MEDIA_TYPE, PIN_CATEGORY_CAPTURE,
 };
 use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemAlloc, IPersist_Impl, CLSCTX_INPROC_SERVER};
-use windows::Win32::System::Memory::{
-    MapViewOfFile, OpenFileMappingW, UnmapViewOfFile, FILE_MAP_READ, MEMORY_MAPPED_VIEW_ADDRESS,
-};
-use windows::Win32::System::SystemInformation::GetTickCount64;
 use windows_core::{IUnknownImpl, Weak};
 
+use crate::frames::Frames;
 use crate::media::{self, Pixel, FORMATS, FRAME_TIME, HEIGHT, WIDTH};
 use crate::server::FILTER_CLSID;
+use crate::{guard, guard_hr, Sendable};
 
 /// ksmedia.h; windows-rs only has it under DirectSound.
 const KSPROPERTY_SUPPORT_GET: u32 = 1;
 const PIN_NAME: &str = "Capture";
-/// Keep showing the last good frame this long when the app stalls, then the placeholder (architecture.md §7.2).
-const HOLD_LAST: Duration = Duration::from_millis(500);
-
-/// Runs `f`, turning a panic into E_UNEXPECTED: nothing may unwind into the host app.
-fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
-    catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_| Err(E_UNEXPECTED.into()))
-}
-
-fn guard_hr(f: impl FnOnce() -> HRESULT) -> HRESULT {
-    catch_unwind(AssertUnwindSafe(f)).unwrap_or(E_UNEXPECTED)
-}
-
-/// DirectShow objects are free-threaded; windows-rs doesn't mark these interfaces Send.
-struct Sendable<T>(T);
-unsafe impl<T> Send for Sendable<T> {}
-
-impl<T> Sendable<T> {
-    /// Moves the whole wrapper into a closure (edition 2021 would otherwise capture the non-Send fields).
-    fn get(self) -> T {
-        self.0
-    }
-}
 
 struct State {
     filter_state: FILTER_STATE,
@@ -693,68 +669,6 @@ fn stop_streaming(st: &mut State) {
     }
 }
 
-/// Read side of the shared frame buffer: opened lazily, reopened when the app (re)starts.
-struct Source {
-    mapping: HANDLE,
-    view: MEMORY_MAPPED_VIEW_ADDRESS,
-    reader: Option<fb::Reader>,
-    next_try: Instant,
-}
-
-impl Source {
-    fn open(&mut self) {
-        if self.reader.is_some() || Instant::now() < self.next_try {
-            return;
-        }
-        self.next_try = Instant::now() + Duration::from_secs(1);
-        for name in [fb::MAPPING_NAME, fb::LOCAL_MAPPING_NAME] {
-            let name = windows::core::HSTRING::from(name);
-            let Ok(m) = (unsafe { OpenFileMappingW(FILE_MAP_READ.0, false, PCWSTR(name.as_ptr())) }) else { continue };
-            let view = unsafe { MapViewOfFile(m, FILE_MAP_READ, 0, 0, fb::mapping_bytes()) };
-            match unsafe { fb::View::new(view.Value as *mut u8, fb::mapping_bytes()) } {
-                Some(v) => {
-                    self.mapping = m;
-                    self.view = view;
-                    self.reader = Some(fb::Reader::new(v));
-                    return;
-                }
-                None => unsafe {
-                    if !view.Value.is_null() {
-                        let _ = UnmapViewOfFile(view);
-                    }
-                    let _ = CloseHandle(m);
-                },
-            }
-        }
-    }
-}
-
-impl Drop for Source {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.view.Value.is_null() {
-                let _ = UnmapViewOfFile(self.view);
-            }
-            if !self.mapping.is_invalid() {
-                let _ = CloseHandle(self.mapping);
-            }
-        }
-    }
-}
-
-fn placeholder_nv12(text: &str) -> Vec<u8> {
-    let (w, h) = (WIDTH as usize, HEIGHT as usize);
-    let i420 = lenny_vcam::frame::placeholder_i420(w, h, text);
-    let mut nv12 = vec![0u8; w * h * 3 / 2];
-    nv12[..w * h].copy_from_slice(&i420[..w * h]);
-    let (u, v) = i420[w * h..].split_at(w * h / 4);
-    for (i, pair) in nv12[w * h..].chunks_exact_mut(2).enumerate() {
-        pair[0] = u[i];
-        pair[1] = v[i];
-    }
-    nv12
-}
-
 /// Sample times: capture time on the graph clock, relative to Run's start. Unstamped (shown on arrival) while
 /// paused or without a clock, so a slow Pause -> Run never delays live video.
 struct Timing {
@@ -779,16 +693,7 @@ fn stream(
     stop: &AtomicBool,
     faulted: &AtomicBool,
 ) {
-    let frame_bytes = fb::nv12_bytes(WIDTH as u32, HEIGHT as u32);
-    let waiting = placeholder_nv12("lenny - waiting for phone");
-    let mut live = vec![0u8; frame_bytes];
-    let mut last_good: Option<Instant> = None;
-    let mut src = Source {
-        mapping: HANDLE::default(),
-        view: MEMORY_MAPPED_VIEW_ADDRESS::default(),
-        reader: None,
-        next_try: Instant::now(),
-    };
+    let mut frames = Frames::new();
     let start = Instant::now();
     let mut n: i64 = 0;
     while !stop.load(Ordering::Relaxed) {
@@ -805,28 +710,7 @@ fn stream(
         }
         let Some(sample) = sample else { break };
 
-        // Pick the picture: live frame, the last good one briefly, or the placeholder.
-        let ok = catch_unwind(AssertUnwindSafe(|| {
-            if faulted.load(Ordering::Relaxed) {
-                return false;
-            }
-            src.open();
-            let Some(r) = &src.reader else { return false };
-            let fresh = r.heartbeat_age(unsafe { GetTickCount64() }) < fb::STALE_MS;
-            let fits = r.format().is_ok_and(|f| f.width == WIDTH as u32 && f.height == HEIGHT as u32);
-            if fresh && fits && r.read_nv12(&mut live).is_ok() {
-                last_good = Some(Instant::now());
-            }
-            last_good.is_some_and(|t| t.elapsed() < HOLD_LAST)
-        }));
-        let picture = match ok {
-            Ok(true) => &live,
-            Ok(false) => &waiting,
-            Err(_) => {
-                faulted.store(true, Ordering::Relaxed); // placeholder only from now on
-                &waiting
-            }
-        };
+        let picture = frames.next(faulted);
 
         let delivered = unsafe {
             let (Ok(ptr), size) = (sample.GetPointer(), sample.GetSize()) else { break };

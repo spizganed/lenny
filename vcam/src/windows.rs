@@ -256,7 +256,7 @@ impl IVirtualCamera for WindowsCamera {
         let dshow = if clsid_registered(fb::DSHOW_FILTER_CLSID) {
             "DirectShow \"Lenny (Classic)\" registered"
         } else {
-            "DirectShow filter not registered (regsvr32 lenny_vcam_dshow.dll)"
+            "DirectShow filter not registered (regsvr32 lenny_vcam_com.dll)"
         };
         format!("shared frames in {buffer}; {dshow}; {}", self.mf_status)
     }
